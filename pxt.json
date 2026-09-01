@@ -1,7 +1,7 @@
 {
     "name": "microbit-smart-ai",
-    "version": "1.0.2",
-    "description": "Smart AI & Voice Assistant Extension for BBC micro:bit",
+    "version": "1.0.3",
+    "description": "Smart AI & Voice Assistant Extension for BBC micro:bit (Gemini, OpenRouter, Claude, ChatGPT, ElevenLabs)",
     "license": "MIT",
     "dependencies": {
         "core": "*"

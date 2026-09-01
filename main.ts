@@ -1,10 +1,29 @@
 enum AIProvider {
     //% block="Gemini"
     Gemini = 0,
-    //% block="Claude"
-    Claude = 1,
+    //% block="OpenRouter"
+    OpenRouter = 1,
     //% block="ChatGPT"
-    ChatGPT = 2
+    ChatGPT = 2,
+    //% block="Claude"
+    Claude = 3
+}
+
+enum OpenRouterPreset {
+    //% block="DeepSeek Chat (deepseek/deepseek-chat)"
+    DeepSeekChat = 0,
+    //% block="Llama 3.3 70B (meta-llama/llama-3.3-70b-instruct)"
+    Llama33 = 1,
+    //% block="Gemini 2.0 Flash (google/gemini-2.0-flash-001)"
+    Gemini2Flash = 2,
+    //% block="GPT-4o Mini (openai/gpt-4o-mini)"
+    GPT4oMini = 3,
+    //% block="Claude 3.5 Sonnet (anthropic/claude-3.5-sonnet)"
+    Claude35Sonnet = 4,
+    //% block="Mistral Large (mistralai/mistral-large-2407)"
+    MistralLarge = 5,
+    //% block="Qwen 2.5 72B (qwen/qwen-2.5-72b-instruct)"
+    Qwen25 = 6
 }
 
 enum ElevenLabsVoice {
@@ -119,7 +138,48 @@ namespace SmartAI {
     }
 
     /**
-     * Voice push-to-talk: When Button A is held, capture voice, transcribe it, and ask AI.
+     * Set the API key for Gemini, OpenRouter, ChatGPT, or Claude directly from your micro:bit!
+     * @param provider AI service
+     * @param key Your API Key
+     */
+    //% blockId="smart_ai_set_api_key"
+    //% block="set %provider API key to %key"
+    //% key.defl="AIzaSy..."
+    //% weight=99
+    export function setApiKey(provider: AIProvider, key: string): void {
+        checkInit();
+        let provStr = providerToString(provider);
+        serial.writeLine("CFG:KEY:" + provStr + ":" + key);
+    }
+
+    /**
+     * Select an OpenRouter model preset (DeepSeek, Llama 3.3, Gemini 2.0, GPT-4o Mini, Claude, etc.).
+     * @param model Model preset
+     */
+    //% blockId="smart_ai_set_openrouter_preset"
+    //% block="set OpenRouter model preset %model"
+    //% weight=98
+    export function setOpenRouterPreset(model: OpenRouterPreset): void {
+        checkInit();
+        let modelStr = openRouterPresetToString(model);
+        serial.writeLine("CFG:MODEL:OPENROUTER:" + modelStr);
+    }
+
+    /**
+     * Set any custom OpenRouter model string (e.g. deepseek/deepseek-chat, meta-llama/llama-3.3-70b-instruct).
+     * @param modelName Full OpenRouter model ID
+     */
+    //% blockId="smart_ai_set_custom_openrouter_model"
+    //% block="set OpenRouter custom model %modelName"
+    //% modelName.defl="deepseek/deepseek-chat"
+    //% weight=97
+    export function setOpenRouterCustomModel(modelName: string): void {
+        checkInit();
+        serial.writeLine("CFG:MODEL:OPENROUTER:" + modelName);
+    }
+
+    /**
+     * Voice push-to-talk: When Button A is held, capture voice, transcribe it, and ask selected AI.
      * @param provider LLM Provider to ask
      */
     //% blockId="smart_ai_button_a_listen_ask"
@@ -141,7 +201,7 @@ namespace SmartAI {
     }
 
     /**
-     * Ask an AI Model (Gemini, Claude, ChatGPT) a question or prompt.
+     * Ask an AI Model (Gemini, OpenRouter, Claude, ChatGPT) a question or prompt.
      * @param provider LLM Provider
      * @param prompt The text prompt or query
      */
@@ -157,7 +217,7 @@ namespace SmartAI {
     }
 
     /**
-     * Event triggered when an AI response arrives.
+     * Event triggered when an AI response arrives from Gemini, OpenRouter, Claude, or ChatGPT.
      */
     //% blockId="smart_ai_on_response"
     //% block="on AI response received $response"
@@ -294,9 +354,21 @@ namespace SmartAI {
     }
 
     function providerToString(provider: AIProvider): string {
+        if (provider == AIProvider.OpenRouter) return "OPENROUTER";
         if (provider == AIProvider.Claude) return "CLAUDE";
         if (provider == AIProvider.ChatGPT) return "CHATGPT";
         return "GEMINI";
+    }
+
+    function openRouterPresetToString(model: OpenRouterPreset): string {
+        if (model == OpenRouterPreset.DeepSeekChat) return "deepseek/deepseek-chat";
+        if (model == OpenRouterPreset.Llama33) return "meta-llama/llama-3.3-70b-instruct";
+        if (model == OpenRouterPreset.Gemini2Flash) return "google/gemini-2.0-flash-001";
+        if (model == OpenRouterPreset.GPT4oMini) return "openai/gpt-4o-mini";
+        if (model == OpenRouterPreset.Claude35Sonnet) return "anthropic/claude-3.5-sonnet";
+        if (model == OpenRouterPreset.MistralLarge) return "mistralai/mistral-large-2407";
+        if (model == OpenRouterPreset.Qwen25) return "qwen/qwen-2.5-72b-instruct";
+        return "deepseek/deepseek-chat";
     }
 
     function voiceToString(voice: ElevenLabsVoice): string {
