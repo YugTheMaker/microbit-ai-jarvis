@@ -1,7 +1,7 @@
 {
     "name": "microbit-smart-ai",
-    "version": "1.0.1",
-    "description": "Smart AI & LLM Extension for BBC micro:bit (Gemini, Claude, ChatGPT, ElevenLabs Speech-to-Text & Text-to-Speech)",
+    "version": "1.0.2",
+    "description": "Smart AI & Voice Assistant Extension for BBC micro:bit",
     "license": "MIT",
     "dependencies": {
         "core": "*"
@@ -13,10 +13,7 @@
     "testFiles": [
         "test.ts"
     ],
-    "targetVersions": {
-        "target": "7.0.0",
-        "targetId": "microbit"
-    },
+    "public": true,
     "supportedTargets": [
         "microbit"
     ],
