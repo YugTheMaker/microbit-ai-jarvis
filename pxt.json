@@ -1,0 +1,27 @@
+{
+    "name": "microbit-ai-jarvis",
+    "version": "1.0.0",
+    "description": "Smart AI & LLM Extension for BBC micro:bit (Gemini, Claude, ChatGPT, ElevenLabs Speech-to-Text & Text-to-Speech)",
+    "license": "MIT",
+    "dependencies": {
+        "core": "*",
+        "microphone": "*",
+        "radio": "*",
+        "serial": "*"
+    },
+    "files": [
+        "README.md",
+        "main.ts"
+    ],
+    "testFiles": [
+        "test.ts"
+    ],
+    "targetVersions": {
+        "target": "7.0.0",
+        "targetId": "microbit"
+    },
+    "supportedTargets": [
+        "microbit"
+    ],
+    "preferredEditor": "blocksprj"
+}
