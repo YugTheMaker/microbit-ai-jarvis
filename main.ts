@@ -3,7 +3,7 @@
  * Connects micro:bit to Gemini, Claude, ChatGPT, and ElevenLabs via USB Mac Bridge.
  */
 
-//% color="#7B2CBF" icon="\uf0e7" block="Smart AI"
+//% color="#7B2CBF" icon="\uf0e7" block="Smart AI" weight=100
 namespace SmartAI {
     export enum AIProvider {
         //% block="Gemini"
@@ -24,9 +24,7 @@ namespace SmartAI {
         //% block="Bella (Female)"
         Bella = 3,
         //% block="Josh (Male)"
-        Josh = 4,
-        //% block="Default Voice"
-        Default = 5
+        Josh = 4
     }
 
     export enum AIEmotion {
@@ -46,12 +44,36 @@ namespace SmartAI {
         Robot = 6
     }
 
-    let isInitialized = false;
-    let lastResponseText = "";
-    let lastSpeechTranscript = "";
-    let aiResponseHandler: (response: string) => void = null;
-    let speechRecognizedHandler: (transcript: string) => void = null;
-    let isListening = false;
+    let isInitialized = false
+    let lastResponseText = ""
+    let lastSpeechTranscript = ""
+    let aiResponseHandler: (response: string) => void = null
+    let speechRecognizedHandler: (transcript: string) => void = null
+    let isListening = false
+
+    function cleanString(text: string): string {
+        if (!text || text.length == 0) return ""
+        let start = 0
+        let end = text.length - 1
+        while (start <= end) {
+            let code = text.charCodeAt(start)
+            if (code == 32 || code == 9 || code == 10 || code == 13) {
+                start++
+            } else {
+                break
+            }
+        }
+        while (end >= start) {
+            let code = text.charCodeAt(end)
+            if (code == 32 || code == 9 || code == 10 || code == 13) {
+                end--
+            } else {
+                break
+            }
+        }
+        if (start > end) return ""
+        return text.substr(start, end - start + 1)
+    }
 
     /**
      * Initializes the AI Serial Bridge with the Mac Companion Server.
@@ -60,76 +82,70 @@ namespace SmartAI {
     //% block="initialize AI Bridge with baud rate %baud"
     //% baud.defl=115200
     //% weight=100
-    //% subcategory="Setup"
+    //% group="Setup"
     export function initBridge(baud: number = 115200): void {
-        if (isInitialized) return;
-        serial.redirect(SerialPin.USB_TX, SerialPin.USB_RX, baud);
-        isInitialized = true;
+        if (isInitialized) return
+        serial.redirect(SerialPin.USB_TX, SerialPin.USB_RX, baud)
+        isInitialized = true
         
-        // Listen for incoming serial commands from Mac bridge
         serial.onDataReceived(serial.delimiters(Delimiters.NewLine), function () {
-            let line = serial.readLine().trim();
-            if (line.length == 0) return;
+            let raw = serial.readLine()
+            let line = cleanString(raw)
+            if (line.length == 0) return
 
             if (line.indexOf("RES:AI:") == 0) {
-                lastResponseText = line.substr(7);
-                showEmotion(AIEmotion.Happy);
+                lastResponseText = line.substr(7)
+                showEmotion(AIEmotion.Happy)
                 if (aiResponseHandler) {
-                    aiResponseHandler(lastResponseText);
+                    aiResponseHandler(lastResponseText)
                 }
             } else if (line.indexOf("RES:STT:") == 0) {
-                lastSpeechTranscript = line.substr(8);
+                lastSpeechTranscript = line.substr(8)
                 if (speechRecognizedHandler) {
-                    speechRecognizedHandler(lastSpeechTranscript);
+                    speechRecognizedHandler(lastSpeechTranscript)
                 }
             } else if (line.indexOf("CMD:EMOTION:") == 0) {
-                let emo = line.substr(12);
-                if (emo == "THINKING") showEmotion(AIEmotion.Thinking);
-                else if (emo == "LISTENING") showEmotion(AIEmotion.Listening);
-                else if (emo == "HAPPY") showEmotion(AIEmotion.Happy);
-                else if (emo == "ERROR") showEmotion(AIEmotion.Error);
-                else if (emo == "SPEAKING") showEmotion(AIEmotion.Speaking);
+                let emo = line.substr(12)
+                if (emo == "THINKING") showEmotion(AIEmotion.Thinking)
+                else if (emo == "LISTENING") showEmotion(AIEmotion.Listening)
+                else if (emo == "HAPPY") showEmotion(AIEmotion.Happy)
+                else if (emo == "ERROR") showEmotion(AIEmotion.Error)
+                else if (emo == "SPEAKING") showEmotion(AIEmotion.Speaking)
             }
-        });
+        })
 
-        // Notify bridge that micro:bit is connected
-        serial.writeLine("EVT:READY:MICROBIT_AI_V1");
+        serial.writeLine("EVT:READY:MICROBIT_AI_V1")
     }
 
-    function ensureInit() {
+    function ensureInit(): void {
         if (!isInitialized) {
-            initBridge(115200);
+            initBridge(115200)
         }
     }
 
     /**
-     * Set the API key for a chosen AI provider (or manage it inside the Mac Companion Bridge).
-     * @param provider LLM provider (Gemini, Claude, ChatGPT, ElevenLabs)
-     * @param apiKey Your private API Key
+     * Voice push-to-talk: When Button A is held, capture voice, transcribe it, and ask AI.
+     * @param provider LLM Provider to ask
      */
-    //% blockId=smart_ai_set_api_key
-    //% block="set %provider API key to %apiKey (hidden)"
-    //% apiKey.defl="AIzaSy..."
+    //% blockId=smart_ai_button_a_listen_ask
+    //% block="push-to-talk: on Button A held, record speech and ask %provider"
     //% weight=95
-    //% subcategory="Setup"
-    export function setAPIKey(provider: AIProvider, apiKey: string): void {
-        ensureInit();
-        let provStr = providerToString(provider);
-        serial.writeLine("CFG:KEY:" + provStr + ":" + apiKey);
-    }
-
-    /**
-     * Set ElevenLabs Voice API Key
-     * @param apiKey ElevenLabs API Key (Free tier supported)
-     */
-    //% blockId=smart_ai_set_elevenlabs_key
-    //% block="set ElevenLabs API key to %apiKey (hidden)"
-    //% apiKey.defl="xi-api-key..."
-    //% weight=94
-    //% subcategory="Setup"
-    export function setElevenLabsKey(apiKey: string): void {
-        ensureInit();
-        serial.writeLine("CFG:KEY:ELEVENLABS:" + apiKey);
+    //% group="Voice & Mic"
+    export function onButtonAHeldAsk(provider: AIProvider): void {
+        ensureInit()
+        input.onButtonPressed(Button.A, function () {
+            showEmotion(AIEmotion.Listening)
+            serial.writeLine("CMD:RECORD_START:" + providerToString(provider))
+            isListening = true
+            
+            while (input.buttonIsPressed(Button.A)) {
+                basic.pause(50)
+            }
+            
+            showEmotion(AIEmotion.Thinking)
+            serial.writeLine("CMD:RECORD_STOP:" + providerToString(provider))
+            isListening = false
+        })
     }
 
     /**
@@ -139,14 +155,14 @@ namespace SmartAI {
      */
     //% blockId=smart_ai_ask
     //% block="ask %provider with prompt %prompt"
-    //% prompt.defl="Tell me a joke"
+    //% prompt.defl="Tell me a fun fact"
     //% weight=90
-    //% subcategory="AI Queries"
+    //% group="AI Queries"
     export function askAI(provider: AIProvider, prompt: string): void {
-        ensureInit();
-        showEmotion(AIEmotion.Thinking);
-        let provStr = providerToString(provider);
-        serial.writeLine("CMD:ASK:" + provStr + ":" + prompt);
+        ensureInit()
+        showEmotion(AIEmotion.Thinking)
+        let provStr = providerToString(provider)
+        serial.writeLine("CMD:ASK:" + provStr + ":" + prompt)
     }
 
     /**
@@ -156,10 +172,10 @@ namespace SmartAI {
     //% block="on AI response received $response"
     //% draggableParameters="reporter"
     //% weight=85
-    //% subcategory="AI Queries"
+    //% group="AI Queries"
     export function onAIResponse(handler: (response: string) => void): void {
-        ensureInit();
-        aiResponseHandler = handler;
+        ensureInit()
+        aiResponseHandler = handler
     }
 
     /**
@@ -168,77 +184,9 @@ namespace SmartAI {
     //% blockId=smart_ai_last_response
     //% block="last AI response text"
     //% weight=80
-    //% subcategory="AI Queries"
+    //% group="AI Queries"
     export function getLastResponse(): string {
-        return lastResponseText;
-    }
-
-    /**
-     * Voice push-to-talk: When Button A is held, capture voice, transcribe it, and ask AI.
-     * @param provider LLM Provider to ask
-     */
-    //% blockId=smart_ai_button_a_listen_ask
-    //% block="push-to-talk: on Button A held, record speech and ask %provider"
-    //% weight=88
-    //% subcategory="Voice & Mic"
-    export function onButtonAHeldAsk(provider: AIProvider): void {
-        ensureInit();
-        input.onButtonPressed(Button.A, function () {
-            showEmotion(AIEmotion.Listening);
-            serial.writeLine("CMD:RECORD_START:" + providerToString(provider));
-            isListening = true;
-            
-            // Loop while button A is still held
-            while (input.buttonIsPressed(Button.A)) {
-                basic.pause(50);
-            }
-            
-            // Button released
-            showEmotion(AIEmotion.Thinking);
-            serial.writeLine("CMD:RECORD_STOP:" + providerToString(provider));
-            isListening = false;
-        });
-    }
-
-    /**
-     * Start listening / recording microphone audio on Mac / micro:bit.
-     */
-    //% blockId=smart_ai_start_listening
-    //% block="start listening to microphone"
-    //% weight=75
-    //% subcategory="Voice & Mic"
-    export function startListening(): void {
-        ensureInit();
-        showEmotion(AIEmotion.Listening);
-        serial.writeLine("CMD:RECORD_START:DEFAULT");
-        isListening = true;
-    }
-
-    /**
-     * Stop listening and send recorded audio for transcription.
-     */
-    //% blockId=smart_ai_stop_listening
-    //% block="stop listening and transcribe"
-    //% weight=74
-    //% subcategory="Voice & Mic"
-    export function stopListening(): void {
-        ensureInit();
-        showEmotion(AIEmotion.Thinking);
-        serial.writeLine("CMD:RECORD_STOP:DEFAULT");
-        isListening = false;
-    }
-
-    /**
-     * Event triggered when speech is transcribed to text.
-     */
-    //% blockId=smart_ai_on_speech_recognized
-    //% block="on speech recognized $transcript"
-    //% draggableParameters="reporter"
-    //% weight=72
-    //% subcategory="Voice & Mic"
-    export function onSpeechRecognized(handler: (transcript: string) => void): void {
-        ensureInit();
-        speechRecognizedHandler = handler;
+        return lastResponseText
     }
 
     /**
@@ -249,13 +197,54 @@ namespace SmartAI {
     //% blockId=smart_ai_speak_elevenlabs
     //% block="speak %text with ElevenLabs voice %voice"
     //% text.defl="Hello! I am your micro:bit AI assistant."
-    //% weight=70
-    //% subcategory="Voice & Mic"
+    //% weight=75
+    //% group="Voice & Mic"
     export function speakElevenLabs(text: string, voice: ElevenLabsVoice = ElevenLabsVoice.Rachel): void {
-        ensureInit();
-        showEmotion(AIEmotion.Speaking);
-        let voiceName = voiceToString(voice);
-        serial.writeLine("CMD:TTS:ELEVENLABS:" + voiceName + ":" + text);
+        ensureInit()
+        showEmotion(AIEmotion.Speaking)
+        let voiceName = voiceToString(voice)
+        serial.writeLine("CMD:TTS:ELEVENLABS:" + voiceName + ":" + text)
+    }
+
+    /**
+     * Start listening / recording microphone audio on Mac / micro:bit.
+     */
+    //% blockId=smart_ai_start_listening
+    //% block="start listening to microphone"
+    //% weight=70
+    //% group="Voice & Mic"
+    export function startListening(): void {
+        ensureInit()
+        showEmotion(AIEmotion.Listening)
+        serial.writeLine("CMD:RECORD_START:DEFAULT")
+        isListening = true
+    }
+
+    /**
+     * Stop listening and send recorded audio for transcription.
+     */
+    //% blockId=smart_ai_stop_listening
+    //% block="stop listening and transcribe"
+    //% weight=68
+    //% group="Voice & Mic"
+    export function stopListening(): void {
+        ensureInit()
+        showEmotion(AIEmotion.Thinking)
+        serial.writeLine("CMD:RECORD_STOP:DEFAULT")
+        isListening = false
+    }
+
+    /**
+     * Event triggered when speech is transcribed to text.
+     */
+    //% blockId=smart_ai_on_speech_recognized
+    //% block="on speech recognized $transcript"
+    //% draggableParameters="reporter"
+    //% weight=65
+    //% group="Voice & Mic"
+    export function onSpeechRecognized(handler: (transcript: string) => void): void {
+        ensureInit()
+        speechRecognizedHandler = handler
     }
 
     /**
@@ -265,7 +254,7 @@ namespace SmartAI {
     //% blockId=smart_ai_show_emotion
     //% block="show AI emotion %emotion"
     //% weight=60
-    //% subcategory="Display"
+    //% group="Display"
     export function showEmotion(emotion: AIEmotion): void {
         switch (emotion) {
             case AIEmotion.Thinking:
@@ -275,8 +264,8 @@ namespace SmartAI {
                     . . # # .
                     . . . . .
                     . . # . .
-                `);
-                break;
+                `)
+                break
             case AIEmotion.Listening:
                 basic.showLeds(`
                     . . # . .
@@ -284,14 +273,14 @@ namespace SmartAI {
                     . # # # .
                     . . # . .
                     # # # # #
-                `);
-                break;
+                `)
+                break
             case AIEmotion.Happy:
-                basic.showIcon(IconNames.Happy);
-                break;
+                basic.showIcon(IconNames.Happy)
+                break
             case AIEmotion.Surprised:
-                basic.showIcon(IconNames.Surprised);
-                break;
+                basic.showIcon(IconNames.Surprised)
+                break
             case AIEmotion.Speaking:
                 basic.showLeds(`
                     . . # . .
@@ -299,11 +288,11 @@ namespace SmartAI {
                     # . # . #
                     . # . # .
                     . . # . .
-                `);
-                break;
+                `)
+                break
             case AIEmotion.Error:
-                basic.showIcon(IconNames.No);
-                break;
+                basic.showIcon(IconNames.No)
+                break
             case AIEmotion.Robot:
                 basic.showLeds(`
                     . # . # .
@@ -311,8 +300,8 @@ namespace SmartAI {
                     # . # . #
                     # # # # #
                     . # . # .
-                `);
-                break;
+                `)
+                break
         }
     }
 
@@ -326,28 +315,28 @@ namespace SmartAI {
     //% text.defl="Hello from Gemini!"
     //% speed.defl=120
     //% weight=50
-    //% subcategory="Display"
+    //% group="Display"
     export function scrollAIText(text: string, speed: number = 120): void {
-        basic.showString(text, speed);
+        basic.showString(text, speed)
     }
 
     function providerToString(provider: AIProvider): string {
         switch (provider) {
-            case AIProvider.Gemini: return "GEMINI";
-            case AIProvider.Claude: return "CLAUDE";
-            case AIProvider.ChatGPT: return "CHATGPT";
-            default: return "GEMINI";
+            case AIProvider.Gemini: return "GEMINI"
+            case AIProvider.Claude: return "CLAUDE"
+            case AIProvider.ChatGPT: return "CHATGPT"
+            default: return "GEMINI"
         }
     }
 
     function voiceToString(voice: ElevenLabsVoice): string {
         switch (voice) {
-            case ElevenLabsVoice.Rachel: return "Rachel";
-            case ElevenLabsVoice.Adam: return "Adam";
-            case ElevenLabsVoice.Antoni: return "Antoni";
-            case ElevenLabsVoice.Bella: return "Bella";
-            case ElevenLabsVoice.Josh: return "Josh";
-            default: return "Rachel";
+            case ElevenLabsVoice.Rachel: return "Rachel"
+            case ElevenLabsVoice.Adam: return "Adam"
+            case ElevenLabsVoice.Antoni: return "Antoni"
+            case ElevenLabsVoice.Bella: return "Bella"
+            case ElevenLabsVoice.Josh: return "Josh"
+            default: return "Rachel"
         }
     }
 }
